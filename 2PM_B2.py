@@ -77,21 +77,21 @@ dKNdne = 0
 
 # Coefficient matrices
 A11 = (-1/Tau_Te)*(1 - dKTdTe)
-A12 = -dKTdGammae
-A13 = -dKTdne
-A21 = -dKGammadTe
+A12 = dKTdGammae/Tau_Te
+A13 = dKTdne/Tau_Te
+A21 = dKGammadTe/Tau_Gammae
 A22 = (-1/Tau_Gammae)*(1 - dKGammadGammae)
-A23 = -dKGammadne
-A31 = -dKNdTe
-A32 = -dKNdGammae
+A23 = dKGammadne/Tau_Gammae
+A31 = dKNdTe/Tau_ne
+A32 = dKNdGammae/Tau_ne
 A33 = (-1/Tau_ne)*(1 - dKNdne)
 
-B11 = -2*K_T * Q_u0/P_u0**2
-B12 = 2*K_T / P_u0**-3
-B21 = K_Gamma * P_u0**2 / Q_u0**2
-B22 = -2*K_Gamma * P_u0 / Q_u0
-B31 = 2 * K_N * P_u0**3/Q_u0**3
-B32 = -3 * K_N * P_u0**2 / Q_u0**2
+B11 = 2*K_T * Q_u0/(P_u0**2 * Tau_Te)
+B12 = -2*K_T / (P_u0**3 * Tau_Te)
+B21 = -K_Gamma * P_u0**2 / (Q_u0**2 * Tau_Gammae)
+B22 = 2*K_Gamma * P_u0 / (Q_u0 * Tau_Gammae)
+B31 = -2 * K_N * P_u0**3/(Q_u0**3 * Tau_ne)
+B32 = 3 * K_N * P_u0**2 / (Q_u0**2 * Tau_ne)
 
 # Matrix assembly
 A = np.array([[A11, A12, A13],
@@ -121,38 +121,37 @@ for i, lam in enumerate(eigvals):
 B_modal = W.dot(B)   # shape (3,2)
 print("\nModal excitation matrix (rows = modes):\n", B_modal)
 
-# 3) step response to a step in input u = u_step (vector)
-u_step = np.array([-1.0, 0.0])   # e.g. 1-unit step in Q_u, zero in P_u
-tfinal = 50.0
+# 3) plot step response (use explicit fig, axs to avoid creating extra axes)
+u_step = np.array([1.0, 0.0])   # e.g. 1-unit step in Q_u, zero in P_u
+tfinal = 3.0
 nt = 1000
 t = np.linspace(0, tfinal, nt)
 
-# If A invertible, use closed-form integral: x(t) = A^{-1} (exp(A t)-I) B u_step
 Ainv = inv(A)
 X = np.zeros((A.shape[0], nt), dtype=complex)
 for k, tk in enumerate(t):
     X[:, k] = (Ainv.dot(expm(A*tk) - np.eye(A.shape[0])).dot(B)).dot(u_step)
 
-# outputs y(t) = C x(t)
 Y = C.dot(X).real     # take real part (numerics)
-plt.figure()
-plt.subplot(1,1,1)
-plt.plot(t, Y.T[:,0]/e)
-plt.ylabel("T_e deviation from eq (eV)")
-plt.xlabel("time")
-plt.grid(True)
-plt.subplot(1,2,1)
-plt.plot(t, Y.T[:,1])
-plt.ylabel("Gamma_e deviation from eq (m^-2 s^-1)")
-plt.xlabel("time")
-plt.grid(True)
-plt.subplot(1,2,2)
-plt.plot(t, Y.T[:,2])
-plt.ylabel("n_e deviation from eq (m^-3)")
-plt.xlabel("time")
-plt.grid(True)
 
-plt.legend(["T_e","Gamma_e","n_e"])
-plt.title("Step response to step in Q_u")
-plt.grid(True)
+fig, axs = plt.subplots(3, 1, figsize=(8, 8), sharex=True)
+fig.suptitle("Step response to step in Q_u")
+
+axs[0].plot(t, Y.T[:, 0] / e)
+axs[0].set_ylabel("T_e [eV]")
+axs[0].grid(True)
+axs[0].legend(["T_e"])
+
+axs[1].plot(t, Y.T[:, 1])
+axs[1].set_ylabel("Gamma_e [$m^{-2} s^{-1}$]")
+axs[1].grid(True)
+axs[1].legend(["Gamma_e"])
+
+axs[2].plot(t, Y.T[:, 2])
+axs[2].set_ylabel("n_e [$m^{-3}$]")
+axs[2].set_xlabel("time [s]")
+axs[2].grid(True)
+axs[2].legend(["n_e"])
+
+fig.tight_layout(rect=[0, 0, 1, 0.96])  # leave space for suptitle
 plt.show()
